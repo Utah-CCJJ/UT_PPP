@@ -1,0 +1,538 @@
+---
+title: "Utah Prison Population Projections"
+subtitle: "Historical Trends and Future Projections"
+format: 
+  dashboard:
+    logo: images/CCJJ_Logo_1.png
+    theme: 
+      - sandstone
+      - custom2.scss
+    nav-buttons:
+      - linkedin
+      - twitter
+      - icon: gitlab
+        href: https://gitlab.com/
+    orientation: rows
+    scrolling: false
+    editor_options: 
+      chunk_output_type: console
+---
+
+```{r}
+#| label: setup
+#| message: false
+
+# Load required packages - streamlined to only what's needed for visualization
+library(tidyverse)
+library(plotly)
+library(DT)
+library(scales)
+library(bslib)
+library(shiny)
+library(bsicons)
+library(lubridate)
+library(kableExtra)
+
+library(knitr)
+library(readxl)
+library(dplyr)
+library(lubridate)
+library(hts)
+library(fable)
+library(fabletools)
+library(tsibble)
+library(ggplot2)
+library(data.table)
+library(plotly)
+library(scales)
+library(DT)
+library(bsts)
+library(forecast)
+library(lubridate)
+library(feasts)
+library(tsibbledata)
+library(tidyr)
+library(kableExtra)
+
+# Set global options
+theme_set(theme_minimal())
+
+```
+
+```{r}
+#| label: load-preprocessed-data
+#| message: false
+
+
+# Load pre-processed data files
+prison_data_clean <- read.csv("data/prison_data_clean.csv") %>%
+  mutate(Quarter_Year = yearquarter(Quarter_Year))
+
+admin_rel_merged_df <- read.csv("data/admin_rel_merged.csv")
+
+# Load forecast dataframes
+forecast_df <- read.csv("data/forecast_total.csv") %>%
+  mutate(Quarter_Year = yearquarter(Quarter_Year))
+
+forecast_df_m <- read.csv("data/forecast_male.csv") %>%
+  mutate(Quarter_Year = yearquarter(Quarter_Year))
+
+forecast_df_f <- read.csv("data/forecast_female.csv") %>%
+  mutate(Quarter_Year = yearquarter(Quarter_Year))
+
+# Load forecast tables
+forecast_table_hybrid <- read.csv("data/forecast_table_total.csv") %>%
+  mutate(Quarter_Year = yearquarter(Quarter_Year))
+
+forecast_table_hybrid_m <- read.csv("data/forecast_table_male.csv") %>%
+  mutate(Quarter_Year = yearquarter(Quarter_Year))
+
+forecast_table_hybrid_f <- read.csv("data/forecast_table_female.csv") %>%
+  mutate(Quarter_Year = yearquarter(Quarter_Year))
+
+# Load summary metrics for value boxes
+summary_metrics <- read.csv("data/summary_metrics.csv")
+
+# Extract current metrics from summary data
+current_total <- summary_metrics %>% filter(population_type == "total") %>% pull(current_pop)
+current_male <- summary_metrics %>% filter(population_type == "male") %>% pull(current_pop)
+current_female <- summary_metrics %>% filter(population_type == "female") %>% pull(current_pop)
+
+projected_total <- summary_metrics %>% filter(population_type == "total") %>% pull(projected_pop)
+projected_male <- summary_metrics %>% filter(population_type == "male") %>% pull(projected_pop)
+projected_female <- summary_metrics %>% filter(population_type == "female") %>% pull(projected_pop)
+
+pct_change_total <- summary_metrics %>% filter(population_type == "total") %>% pull(pct_change)
+pct_change_male <- summary_metrics %>% filter(population_type == "male") %>% pull(pct_change)
+pct_change_female <- summary_metrics %>% filter(population_type == "female") %>% pull(pct_change)
+
+annual_change_total <- summary_metrics %>% filter(population_type == "total") %>% pull(annual_change)
+annual_change_male <- summary_metrics %>% filter(population_type == "male") %>% pull(annual_change)
+annual_change_female <- summary_metrics %>% filter(population_type == "female") %>% pull(annual_change)
+
+# Load gender & offense type data for faceted plots
+df_driver_1 <- read.csv("data/driver_data.csv") %>%
+  mutate(Quarter_Year = yearquarter(Quarter_Year))
+
+
+# Read in Prison Admission Data 
+library(here)
+admin_rel_merged_df <- read.csv(here("data", "admin_rel_merged.csv"))
+
+#admin_rel_merged_df = read.csv("data/admin_rel_merged_df.csv")
+
+```
+
+#  {.sidebar}
+
+```{r}
+#| label: controls
+#| panel: sidebar
+
+selectInput(
+  "population_type",
+  "Population Type:",
+  choices = c("Total Population" = "total", 
+              "Male Population" = "male", 
+              "Female Population" = "female"),
+  selected = "total"
+)
+
+selectInput(
+  "projection_horizon",
+  "Projection Horizon:",
+  choices = c("2 Years (8 Quarters)" = 8, 
+              "3 Years (12 Quarters)" = 12, 
+              "5 Years (20 Quarters)" = 20),
+  selected = 20
+)
+
+selectInput(
+  "scenario",
+  "Policy Scenario:",
+  choices = c(
+    "Baseline" = "baseline",
+    "Reform" = "reform",
+    "COVID Impact" = "covid"
+  ),
+  selected = "baseline"
+)
+
+hr()
+
+# Information text
+helpText(
+  "This dashboard provides projections of Utah's prison population based on historical data.",
+  "Use the controls above to customize your view."
+)
+
+```
+
+# 🏛️ Overview {orientation="rows" scrolling="true"}
+
+## Value Boxes {height="40%" fig-align:center}
+
+```{r}
+#| content: valuebox
+
+renderUI({
+  population_type <- input$population_type
+  
+  if (population_type == "total") {
+    current_pop <- current_total
+    projected_pop <- projected_total
+    pct_change <- pct_change_total
+    annual_change <- annual_change_total
+  } else if (population_type == "male") {
+    current_pop <- current_male
+    projected_pop <- projected_male
+    pct_change <- pct_change_male
+    annual_change <- annual_change_male
+  } else {
+    current_pop <- current_female
+    projected_pop <- projected_female
+    pct_change <- pct_change_female
+    annual_change <- annual_change_female
+  }
+  
+  vbs <- list(
+    value_box(
+      title = paste(str_to_title(gsub("Population", "", population_type)), "Current Population"),
+      value = comma(round(current_pop)),
+      showcase = bs_icon("people-fill"),
+      theme = value_box_theme(bg = "#e6f2fd", fg = "#0B538E"),
+      p("2024 Q4")
+    ),
+    value_box(
+      title = paste(str_to_title(gsub("Population", "", population_type)), "Projected Population"),
+      value = comma(round(projected_pop)),
+      showcase = bs_icon("graph-up"),
+      theme = "teal",
+      p("5 years projection"),
+      p("2029 Q4")
+    ),
+    value_box(
+      title = "Percent Change",
+      value = paste0(pct_change, "%"),
+      showcase = bs_icon("percent"),
+      theme = "pink",
+      p("over 5 years")
+    ),
+     value_box(
+      title = "Average Annual Change",
+      value = paste0(annual_change, "%"),
+      showcase = bs_icon("calendar-event"),
+      theme = "warning",
+      p("annually")
+    )
+  )
+  
+  layout_column_wrap(
+    width = "250px",
+    !!!vbs
+  )
+})
+```
+
+## Plot {height="60%"}
+
+```{r}
+#| title: Quarterly Net Difference Prison Admissions and Releases Over Time
+#| height: 60%
+
+# plot difference 
+plot_ly(admin_rel_merged_df, x = ~as.character(Year_Quarter)) %>%
+  add_lines(y = ~diff, name = "Net difference", line = list(color = "#00A7C4")) %>%
+  layout(
+    title = "",
+    xaxis = list(title = "Year_Quarter"),
+    yaxis = list(title = "Count", range = c(0, NA))  # Start y-axis at 0
+  )
+
+```
+
+# 📈 Projections
+
+## Row {height="50%"}
+
+```{r}
+#| label: projection-plot
+
+renderPlotly({
+  population_type <- input$population_type
+  projection_horizon <- as.numeric(input$projection_horizon)
+  
+  if (population_type == "total") {
+    forecast_data <- forecast_df
+    title <- "Total Prison Population Projection"
+    color_actual <- "#00A7C4"
+  } else if (population_type == "male") {
+    forecast_data <- forecast_df_m
+    title <- "Male Prison Population Projection"
+    color_actual <- "#0a4c6a"
+  } else {
+    forecast_data <- forecast_df_f
+    title <- "Female Prison Population Projection"
+    color_actual <- "#fc719e"
+  }
+  
+  # Limit horizon to selected value
+  max_date <- max(forecast_data$Quarter_Year[!is.na(forecast_data$Actual)])
+  horizon_dates <- seq(max_date + 1, by = 1, length.out = projection_horizon)
+  
+  # Filter forecast data
+  limited_forecast <- forecast_data
+  limited_forecast$Forecasted[limited_forecast$Quarter_Year > max(horizon_dates)] <- NA
+  limited_forecast$Lower_CI[limited_forecast$Quarter_Year > max(horizon_dates)] <- NA
+  limited_forecast$Upper_CI[limited_forecast$Quarter_Year > max(horizon_dates)] <- NA
+  
+  # Create plot
+  plot_ly() %>%
+    add_lines(
+      data = limited_forecast,
+      x = ~Quarter_Year,
+      y = ~Actual,
+      name = "Historical",
+      line = list(color = color_actual)
+    ) %>%
+    add_lines(
+      data = limited_forecast,
+      x = ~Quarter_Year,
+      y = ~Forecasted,
+      name = "Projection",
+      line = list(color = "#fdbf11", dash = "dash")
+    ) %>%
+    add_ribbons(
+      data = limited_forecast,
+      x = ~Quarter_Year,
+      ymin = ~Lower_CI,
+      ymax = ~Upper_CI,
+      name = "80% Confidence Interval",
+      fillcolor = "rgba(22, 150, 210, 0.2)",
+      line = list(color = "transparent")
+    ) %>%
+    layout(
+      title = paste("Actual vs Forecasted", population_type),
+      xaxis = list(title = "Quarter/Year"),
+      yaxis = list(title = "Prison Population", tickformat = ","),
+      hovermode = "x unified",
+      showlegend = TRUE
+    )
+})
+
+```
+
+## Row {height="30%"}
+
+```{r}
+#| label: projection-table
+
+renderDT({
+  population_type <- input$population_type
+  projection_horizon <- as.numeric(input$projection_horizon)
+  
+  if (population_type == "total") {
+    table_data <- forecast_table_hybrid
+  } else if (population_type == "male") {
+    table_data <- forecast_table_hybrid_m
+  } else {
+    table_data <- forecast_table_hybrid_f
+  }
+  
+  # Limit rows to selected horizon
+  table_data <- head(table_data, projection_horizon)
+  
+  # Format table
+  table_data <- table_data %>%
+    mutate(
+      Quarter_Year = as.character(Quarter_Year),
+      Forecasted_hybrid = round(Forecasted_hybrid),
+      Lower_CI = round(Lower_CI),
+      Upper_CI = round(Upper_CI)
+    ) %>%
+    select(
+      Quarter = Quarter_Year,
+      Forecast = Forecasted_hybrid,
+      `Lower CI` = Lower_CI,
+      `Upper CI` = Upper_CI,
+      `% Change` = Percent_Change
+    )
+  
+  datatable(
+    table_data,
+    options = list(
+      pageLength = projection_horizon,
+      dom = 't',
+      ordering = FALSE
+    ),
+    rownames = FALSE
+  ) %>%
+    formatStyle(
+      '% Change',
+      color = styleInterval(c(0), c('red', 'green')),
+      fontWeight = 'bold'
+    )
+})
+
+```
+
+## Row {height="20%"}
+
+::: callout-note
+For detailed `confidence interval` data for these projections, see the [technical workbook](https://justice.utah.gov/research-analysis/).
+:::
+
+# ↕️️ Prison Drivers
+
+## Gender & Offense Type
+
+```{r, warning=FALSE}
+# Use the pre-processed driver data that was loaded
+p <- df_driver_1 |> 
+  filter(!is.na(gender), !is.na(top_ofnse_typ_desc)) |>
+  mutate(Gender = as.character(gender)) |>
+  ggplot(aes(x = Quarter_Year, y = Count,
+             group = Gender, colour=Gender)) +
+  stat_summary(fun = sum, geom = "line") +
+  labs(title = "Utah prison population (by offense type & gender)",
+       y = "Number of prisoners") +
+  facet_wrap(~ as.character(top_ofnse_typ_desc),
+             nrow = 4, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Number of prisoners",
+       x = "Year/Quarter",
+       title = "Utah Prison Population (by gender and offense type): 2010:Q1-Present") + 
+  scale_color_manual(values = c("#00A7C4", "#DA9100", "grey"), 
+                     labels = c("Female", "Male", "Unknown")) + 
+  guides(color = guide_legend(title = "Gender")) + 
+  scale_x_yearquarter(breaks = seq(yearquarter("2010 Q1"), yearquarter("2025 Q4"), by = 8),
+                     labels = ~format(.x, "%Y Q%q")) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p <- p + geom_vline(xintercept = yearquarter("2020 Q1"), linetype = "dashed", color = "grey")  # Add vertical line
+
+ggplotly(p)
+
+```
+
+# ⚠️ Capacity
+
+```{r}
+#| label: capacity-analysis
+
+renderPlotly({
+  population_type <- input$population_type
+  projection_horizon <- as.numeric(input$projection_horizon)
+  
+  # Load capacity data
+  capacity_data <- read_csv("data/capacity_limits.csv")
+  
+  # Set capacity limits based on population type
+  if (population_type == "total") {
+    capacity_limit <- capacity_data %>% filter(type == "total") %>% pull(capacity)
+    forecast_data <- forecast_df
+    color_actual <- "#00A7C4"
+    title <- "Total Prison Population vs. Capacity"
+  } else if (population_type == "male") {
+    capacity_limit <- capacity_data %>% filter(type == "male") %>% pull(capacity)
+    forecast_data <- forecast_df_m
+    color_actual <- "#0a4c6a"
+    title <- "Male Prison Population vs. Capacity"
+  } else {
+    capacity_limit <- capacity_data %>% filter(type == "female") %>% pull(capacity)
+    forecast_data <- forecast_df_f
+    color_actual <- "#fc719e"
+    title <- "Female Prison Population vs. Capacity"
+  }
+  
+  # Limit horizon to selected value
+  max_date <- max(forecast_data$Quarter_Year[!is.na(forecast_data$Actual)])
+  horizon_dates <- seq(max_date + 1, by = 1, length.out = projection_horizon)
+  
+  # Filter forecast data
+  limited_forecast <- forecast_data
+  limited_forecast$Forecasted[limited_forecast$Quarter_Year > max(horizon_dates)] <- NA
+  limited_forecast$Lower_CI[limited_forecast$Quarter_Year > max(horizon_dates)] <- NA
+  limited_forecast$Upper_CI[limited_forecast$Quarter_Year > max(horizon_dates)] <- NA
+  
+  # Create capacity data frame
+  capacity_df <- data.frame(
+    Quarter_Year = unique(forecast_data$Quarter_Year),
+    Capacity = capacity_limit
+  )
+  
+  # Calculate when capacity is reached
+  capacity_reached <- NA
+  for (i in 1:length(horizon_dates)) {
+    date <- horizon_dates[i]
+    projected_value <- forecast_data$Forecasted[forecast_data$Quarter_Year == date]
+    if (!is.na(projected_value) && projected_value > capacity_limit) {
+      capacity_reached <- date
+      break
+    }
+  }
+  
+  # Create plot
+  p <- plot_ly() %>%
+    # Historical data
+    add_lines(
+      data = limited_forecast,
+      x = ~Quarter_Year,
+      y = ~Actual,
+      name = "Historical",
+      line = list(color = color_actual)
+    ) %>%
+    # Forecasted data
+    add_lines(
+      data = limited_forecast,
+      x = ~Quarter_Year,
+      y = ~Forecasted,
+      name = "Projection",
+      line = list(color = "#fdbf11", dash = "dash")
+    ) %>%
+    # Confidence interval
+    add_ribbons(
+      data = limited_forecast,
+      x = ~Quarter_Year,
+      ymin = ~Lower_CI,
+      ymax = ~Upper_CI,
+      name = "80% Confidence Interval",
+      fillcolor = "rgba(22, 150, 210, 0.2)",
+      line = list(color = "transparent")
+    ) %>%
+    # Capacity line
+    add_lines(
+      data = capacity_df,
+      x = ~Quarter_Year,
+      y = ~Capacity,
+      name = "Capacity Limit",
+      line = list(color = "red", dash = "dot", width = 2)
+    )
+  
+  # Add capacity reached annotation if applicable
+  if (!is.na(capacity_reached)) {
+    projected_value <- forecast_data$Forecasted[forecast_data$Quarter_Year == capacity_reached]
+    p <- p %>% add_annotations(
+      x = capacity_reached,
+      y = projected_value,
+      text = paste("Capacity reached:", format(capacity_reached, "%Y Q%q")),
+      showarrow = TRUE,
+      arrowhead = 1,
+      arrowsize = 1,
+      arrowwidth = 2,
+      arrowcolor = "red",
+      ax = 0,
+      ay = -40,
+      font = list(color = "red")
+    )
+  }
+  
+  # Complete the plot
+  p %>% layout(
+    title = title,
+    xaxis = list(title = "Quarter/Year"),
+    yaxis = list(title = "Prison Population", tickformat = ","),
+    hovermode = "x unified",
+    showlegend = TRUE
+  )
+})
+```

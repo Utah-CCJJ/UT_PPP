@@ -1,0 +1,182 @@
+/* Urban Institute Color Palette */
+:root {
+  --urban-blue: #1696d2;
+  --urban-yellow: #fdbf11;
+  --urban-black: #000000;
+  --urban-gray: #d2d2d2;
+  --urban-light-blue: rgba(22, 150, 210, 0.2);
+  --font-family: -apple-system, BlinkMacSystemFont, "Lato", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Global Styles */
+body {
+  font-family: var(--font-family);
+  color: var(--urban-black);
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family);
+  font-weight: 600;
+  color: var(--urban-black);
+}
+
+/* Metric Cards */
+.metric-card {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.metric-content {
+  text-align: center;
+}
+
+.metric-content h3 {
+  color: var(--urban-black);
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.metric-value {
+  color: var(--urban-blue);
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* Analysis Cards */
+.analysis-card {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Summary Card */
+.summary-card {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+.summary-content h3 {
+  color: var(--urban-black);
+  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.summary-table tr {
+  border-bottom: 1px solid var(--urban-gray);
+}
+
+.summary-table tr:last-child {
+  border-bottom: none;
+}
+
+.summary-table td {
+  padding: 0.75rem 0;
+  color: var(--urban-black);
+}
+
+.summary-table td:first-child {
+  font-weight: 500;
+}
+
+.summary-table td:last-child {
+  text-align: right;
+  color: var(--urban-blue);
+  font-weight: 600;
+}
+
+/* Plot Styling */
+.plot {
+  background: white;
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+/* Input Styling */
+select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--urban-gray);
+  border-radius: 4px;
+  font-family: var(--font-family);
+  margin-bottom: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .metric-value {
+    font-size: 1.5rem;
+  }
+  
+  .summary-content h3 {
+    font-size: 1rem;
+  }
+  
+  .summary-table td {
+    font-size: 0.9rem;
+  }
+}
+
+/* Dashboard Layout */
+.dashboard {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Grid Layout */
+.grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+/* Typography */
+.dashboard-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--urban-black);
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-subtitle {
+  font-size: 1.2rem;
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+/* Chart Tooltips */
+.plot-tooltip {
+  background: white;
+  border: 1px solid var(--urban-gray);
+  border-radius: 4px;
+  padding: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Legend Styling */
+.plot-legend {
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+}

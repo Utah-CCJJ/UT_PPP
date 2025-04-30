@@ -1,0 +1,422 @@
+---
+title: "Utah Prison Population Projections"
+subtitle: "Historical Trends and Future Projections"
+format: 
+  dashboard:
+    logo: images/CCJJ_Logo_1.png
+    theme: 
+      - sandstone
+      - custom.scss
+    nav-buttons:
+      - linkedin
+      - twitter
+      - icon: gitlab
+        href: https://gitlab.com/
+    orientation: rows
+    scrolling: false
+    editor_options: 
+      chunk_output_type: console
+---
+
+```{r}
+#| label: setup
+#| message: false
+
+# Load required packages
+library(tidyverse)
+library(plotly)
+library(forecast)
+library(DT)
+library(scales)
+library(bslib)
+library(shiny)
+library(bsicons)
+library(car)
+
+
+library(knitr)
+library(readxl)
+library(dplyr)
+library(lubridate)
+library(hts)
+library(fable)
+library(fabletools)
+library(tsibble)
+library(ggplot2)
+library(data.table)
+library(plotly)
+library(scales)
+library(DT)
+library(bsts)
+library(forecast)
+library(lubridate)
+library(feasts)
+library(tsibbledata)
+library(tidyr)
+library(kableExtra)
+
+#theme_set(theme_minimal(base_size = 24, base_family = "Lato"))
+# Set global options
+#options(scipen = 999)
+theme_set(theme_minimal())
+
+```
+
+```{r}
+#| label: load-process-data
+#| message: false
+
+# read in general pop data
+df_pop = read.csv("data/utah_population_data.csv")
+
+# Expand data to quarterly level
+df_quarterly = df_pop[rep(1:nrow(df_pop), each = 4), ]
+df_quarterly$quarter <- rep(1:4, times = nrow(df_pop))
+
+# Adjust population for quarterly distribution (assume same quarterly values by year)
+df_quarterly$pop_quarterly <- df_quarterly$population_18_65 / 4
+
+# Create Year_Quarter variable
+df_quarterly$Quarter_Year = paste0(df_quarterly$year, "-Q", df_quarterly$quarter)
+
+# Select relevant columns
+df_quarterly <- df_quarterly[, c("Quarter_Year", "pop_quarterly")]
+
+# Print the result
+#print(df_quarterly)
+
+# read in prison data
+prison1 = read_excel("data/PPP 2025 Data_Feb_25.xlsx", sheet = "Quarterly Population Summary")
+#head(prison1)
+
+# select only x first columns 
+prison_df = prison1[, c(1:5)]
+#prison_df
+
+# rename select variables
+prison_df = prison_df %>% rename(Quarter_Year = "Month/Year", gender = Sex, top_ofnse_typ_desc = `Primary Offense Type`, admin_type = `Prison Entry Group`, count = `Avg. Daily Population`)
+
+# ensure all data points have full data (meaning complete quarters):
+prison_df = prison_df %>% filter(Quarter_Year != "2025 Q1")
+#prison_df = prison_df %>% filter(admin_type != "Other") # any final forecast should never exclude groups
+
+# Group/clean variables ##
+
+# rename offense_type to "UNKNOWN" if missing values
+prison_df$top_ofnse_typ_desc[is.na(prison_df$top_ofnse_typ_desc)] = "OTHER"
+
+# group certain offenses (that have small n's)
+prison_df$top_ofnse_typ_desc = ifelse(prison_df$top_ofnse_typ_desc == "SEX/REGISTERABLE", "SEX OFFENSE", prison_df$top_ofnse_typ_desc) 
+prison_df$top_ofnse_typ_desc = ifelse(prison_df$top_ofnse_typ_desc == "SEX/NON-REGISTERABLE", "SEX OFFENSE", prison_df$top_ofnse_typ_desc) 
+prison_df$top_ofnse_typ_desc = ifelse(prison_df$top_ofnse_typ_desc == "?", "OTHER", prison_df$top_ofnse_typ_desc) 
+#prison_df$top_ofnse_typ_desc = ifelse(prison_df$top_ofnse_typ_desc == "WEAPONS", "OTHER", prison_df$top_ofnse_typ_desc) 
+# admin_type category Other has outliers for the last year (due to lagged time in processing), need to fix
+prison_df$admin_type = ifelse(prison_df$admin_type == "Other", "Technical Commitment", prison_df$admin_type)
+
+# group "G" & "N" gender labels (due to small n's)
+prison_df$gender = ifelse(prison_df$gender == "G", "MALE", prison_df$gender) 
+prison_df$gender = ifelse(prison_df$gender == "N", "MALE", prison_df$gender) 
+#prison_df
+
+# rename data frame
+prison_df1 = prison_df
+
+# Convert to <S3: yearquarter>
+prison_df1$Quarter_Year = yearquarter(prison_df1$Quarter_Year)
+#prison_df1
+
+
+
+
+# Read in Prison Admission Data 
+admin_rel_merged_df = read.csv("data/admin_rel_merged_df.csv")
+
+```
+
+#  {.sidebar}
+
+```{r}
+#| label: controls
+#| panel: sidebar
+
+selectInput(
+  "population_type",
+  "Population Type:",
+  choices = c("Total Population" = "total", 
+              "Male Population" = "male", 
+              "Female Population" = "female"),
+  selected = "total"
+)
+
+selectInput(
+  "projection_horizon",
+  "Projection Horizon:",
+  choices = c("2 Years (8 Quarters)" = 8, 
+              "3 Years (12 Quarters)" = 12, 
+              "5 Years (20 Quarters)" = 20),
+  selected = 20
+)
+
+selectInput(
+  "scenario",
+  "Policy Scenario:",
+  choices = c(
+    "Baseline" = "baseline",
+    "Reform" = "reform",
+    "COVID Impact" = "covid"
+  ),
+  selected = "baseline"
+)
+
+hr()
+
+# Information text
+helpText(
+  "This dashboard provides projections of Utah's prison population based on historical data.",
+  "Use the controls above to customize your view."
+)
+
+```
+
+
+# 🏛️ Overview {orientation="rows" scrolling="true"}
+
+## Value Boxes {height="40%" fig-align:center}
+
+```{r}
+#| content: valuebox
+vbs <- list(
+  value_box(
+    title = "Current Population",
+    value = "6,365",
+    showcase = bs_icon("people-fill"),
+    theme = value_box_theme(bg = "#e6f2fd", fg = "#0B538E"),
+    p("2024 Q4")
+  ),
+  value_box(
+    title = "Projected Population",
+    value = "6,693",
+    showcase = bs_icon("graph-up"),
+    theme = "teal",
+    p("5 years projection"),
+    p("2028 Q4")
+  ),
+  value_box(
+    title = "Percent Change",
+    value = "5.1%",
+    showcase = bs_icon("percent"),
+    theme = "pink",
+    p("over 5 years")
+  ),
+   value_box(
+    title = "Average Annual Change",
+    value = "1.5%",
+    showcase = bs_icon("calendar-event"),
+    theme = "warning",
+    p("annually")
+  )
+)
+
+layout_column_wrap(
+  width = "250px",
+  !!!vbs
+)
+
+```
+
+## Plot {height="60%"}
+
+```{r}
+#| title: Quarterly Net Difference Prison Admissions and Releases Over Time
+#| height: 60%
+
+# plot difference 
+plot_ly(admin_rel_merged_df, x = ~as.character(Year_Quarter)) %>%
+  add_lines(y = ~diff, name = "Net difference", line = list(color = "#00A7C4")) %>%
+  layout(
+    title = "",
+    xaxis = list(title = "Year_Quarter"),
+    yaxis = list(title = "Count", range = c(0, NA))  # Start y-axis at 0
+  )
+
+```
+
+
+# 📈 Projections
+
+## Row {height="50%"}
+
+```{r}
+#| label: forecast-plot
+
+# aggregate the data and calculate pc change
+prison_data_plot <- prison_df1 %>%
+  group_by(Quarter_Year) %>%
+  summarize(Inmates = sum(count)) %>%
+  mutate(
+    pc_change = round((Inmates - lag(Inmates)) / lag(Inmates) * 100, 2),
+    Quarter_Year = as.character(Quarter_Year)
+  )
+
+# use the aggregated data
+data = prison_data_plot[, c(1,2)]
+#data
+
+# Convert Quarter_Year to yearquarter
+data$Quarter_Year <- yearquarter(data$Quarter_Year)
+
+# create the structural break variables
+data$jri <- ifelse(data$Quarter_Year >= yearquarter("2015 Q1"), 1, 0)
+data$covid <- ifelse(data$Quarter_Year >= yearquarter("2020 Q1"), 1, 0)
+
+# create a time variable
+data = data %>%
+  mutate(time = row_number())
+
+# Extract the quarter to add a seasonal effect
+data$quarter <- quarter(data$Quarter_Year)
+
+# merge w pop data
+df_quarterly$Quarter_Year = yearquarter(df_quarterly$Quarter_Year)
+data = left_join(data, df_quarterly, by = "Quarter_Year")
+#data
+
+# Fit a linear model on all data via lm()
+model <- lm(Inmates ~ time + jri + covid, data = data)
+#+ pop_quarterly 
+
+# view model
+#summary(model)
+
+# Forecast
+forecast_horizon <- 20  # Set forecast horizon
+new_data <- data.frame(
+  time = (nrow(data) + 1):(nrow(data) + forecast_horizon),  # Adjust time index for new data
+  #pop_quarterly = rep(df_quarterly$pop_quarterly[nrow(df_quarterly)], forecast_horizon),  # Extend pop_quarterly for forecast horizon
+  #quarter = factor(rep(1:4, length.out = forecast_horizon)),  # Generate quarterly values for forecast horizon
+  jri = 1,
+  covid = 1
+)
+# use the predict function to forecast out, 80% CI
+forecasts <- predict(model, newdata = new_data, interval = "prediction", level = 0.8) # 80% CI
+
+# Combine data (adjust the lengths of variables based on the forecast horizon)
+df_lm_1 <- data.frame(
+  time = 1:(nrow(data) + forecast_horizon),
+  Quarter_Year = c(data$Quarter_Year, seq(data$Quarter_Year[nrow(data)] + 1, by = 1, length.out = forecast_horizon)),
+  Actual = c(data$Inmates, rep(NA, forecast_horizon)),
+  Forecast_LM = c(rep(NA, nrow(data)), forecasts[, "fit"]),
+  Lower_LM = c(rep(NA, nrow(data)), forecasts[, "lwr"]),
+  Upper_LM = c(rep(NA, nrow(data)), forecasts[, "upr"])
+)
+
+# Fit ETS model to residuals of linear regression
+residuals <- model$residuals
+model_ets <- ets(residuals, alpha = 0.8) # choose value of alpha (0-1), higher alpha responds more to recent trends
+
+# Forecast from ETS model with prediction intervals using forecast()
+forecasts_ets <- forecast(model_ets, h = forecast_horizon, level = 80)
+
+# Combine forecasts and prediction intervals
+combined_forecasts <- forecasts[, "fit"] + forecasts_ets$mean
+lower_ci <- forecasts[, "lwr"] + forecasts_ets$lower[, 1]
+upper_ci <- forecasts[, "upr"] + forecasts_ets$upper[, 1]
+
+# Create data frame for plotting
+forecast_df <- data.frame(
+  Quarter_Year = c(data$Quarter_Year, seq(data$Quarter_Year[nrow(data)] + 1, by = 1, length.out = forecast_horizon)),
+  Actual = c(data$Inmates, rep(NA, forecast_horizon)),
+  Forecasted = c(rep(NA, nrow(data)), combined_forecasts),
+  Lower_CI = c(rep(NA, nrow(data)), lower_ci),
+  Upper_CI = c(rep(NA, nrow(data)), upper_ci)
+)
+
+# Create the plot
+p = ggplot(forecast_df, aes(x = Quarter_Year)) +
+  geom_line(aes(y = Actual, color = "Actual"), linetype = "solid") +
+  geom_line(aes(y = Forecasted, color = "Forecasted"), linetype = "dashed") +
+  geom_ribbon(aes(ymin = Lower_CI, ymax = Upper_CI), fill = "grey70", alpha = 0.5) +
+  labs(title = "Actual (2010 Q1 - 2024 Q2) vs Forecasted Prison Population",
+       x = "Quarter/Year",
+       y = "Prison Population") +
+  scale_color_manual(
+    values = c("Actual" = "#00A7C4", "Forecasted" = "red"),
+    labels = c("Actual", "Forecast")
+  ) +
+  theme_minimal() +
+  ylim(0, 10000) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(title = "Series"))
+
+#p # view ggplot
+
+pp = ggplotly(p) # convert to plotly
+
+pp # view plotly
+
+```
+
+## Row {height="30%"}
+
+```{r}
+#| label: flow-plot
+
+# Create data frame for the table
+forecast_table_hybrid <- data.frame(
+  Quarter_Year = seq(data$Quarter_Year[nrow(data)] + 1, by = 1, length.out = forecast_horizon),
+  Forecasted_hybrid = combined_forecasts,
+  Lower_CI = lower_ci,
+  Upper_CI = upper_ci
+) %>%
+  mutate(
+    Percent_Change = round((as.numeric(Forecasted_hybrid) - lag(as.numeric(Forecasted_hybrid))) / lag(as.numeric(Forecasted_hybrid)) * 100, 1)  # Convert to numeric before lag(), round to 1 decimals
+  )
+
+# Print the table via kable()
+kable(forecast_table_hybrid)
+```
+
+## Row {height="20%"}
+::: {.callout-note}
+For detailed `confidence interval` data for these projections, see the [technical workbook](https://justice.utah.gov/research-analysis/). 
+:::
+
+# ↕️️ Prison Drivers
+
+## Gender & Offense Type
+
+```{r, warning=FALSE}
+
+# aggregate the data by group
+df_driver_1 <- prison_df1 %>%
+  group_by(Quarter_Year, gender, top_ofnse_typ_desc) %>%
+  summarize(Count = sum(count))
+
+# plot by offense type/gender
+p = df_driver_1 |> 
+  filter(!is_aggregated(gender), !is_aggregated(top_ofnse_typ_desc)) |>
+  mutate(Gender = as.character(gender)) |>
+  ggplot(aes(x = Quarter_Year, y = Count,
+             group = Gender, colour=Gender)) +
+  stat_summary(fun = sum, geom = "line") +
+  labs(title = "Utah prison population (by offense type & gender)",
+       y = "Number of prisoners") +
+  facet_wrap(~ as.character(top_ofnse_typ_desc),
+             nrow = 4, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Number of prisoners",
+       x = "Year/Quarter",
+       title = "Utah Prison Population (by gender and offense type): 2010:Q1-Present") + scale_color_manual(values = c("#00A7C4", "#DA9100", "grey"), labels = c("Female", "Male", "Unknown")) + guides(color = guide_legend(title = "Gender")) + scale_x_yearquarter(breaks = seq(yearquarter("2010 Q1"), yearquarter("2025 Q4"), by = 8),
+                        labels = ~format(.x, "%Y Q%q")) + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p = p + geom_vline(xintercept = yearquarter("2020 Q1"), linetype = "dashed", color = "grey")  # Add vertical line
+
+pp = ggplotly(p)
+
+pp
+
+```
+
+# ⚠️ Capacity
+
+
+

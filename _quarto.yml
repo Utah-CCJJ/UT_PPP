@@ -1,0 +1,26 @@
+project:
+  type: website
+  output-dir: docs
+  render:
+    - index.qmd
+    - dashboard.qmd
+
+website:
+  title: "Utah Prison Population Projections"
+  navbar:
+    left:
+      - text: "Home"
+        file: index.qmd
+      - text: "Dashboard"
+        file: Quarto_PPP_Dashboard.qmd
+    right:
+      - icon: github
+        href: https://github.com/syoongov/utah-prison-projections
+      - icon: building-columns
+        href: https://justice.utah.gov/research-analysis/
+
+format:
+  html:
+    theme: cosmo
+    css: custom.scss
+    toc: true

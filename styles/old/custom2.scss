@@ -1,0 +1,50 @@
+/*-- scss:defaults --*/
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
+
+$primary: #1696d2;
+$secondary: #fdbf11;
+$body-bg: #ffffff;
+$body-color: #353535;
+$font-family-base: "Lato", -apple-system, system-ui, BlinkMacSystemFont, sans-serif;
+$headings-font-weight: 700;
+
+/*-- scss:rules --*/
+.dashboard {
+  background-color: #f8f9fa;
+}
+
+.sidebar-content {
+  padding: 1rem;
+  
+  h4 {
+    color: $primary;
+    margin-bottom: 1rem;
+  }
+  
+  hr {
+    margin: 1rem 0;
+  }
+  
+  .small {
+    font-size: 0.875rem;
+    color: #666;
+  }
+}
+
+.value-box {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 1rem;
+}
+
+.datatable-container {
+  padding: 1rem;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

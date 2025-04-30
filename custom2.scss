@@ -1,0 +1,125 @@
+/*-- scss:defaults --*/
+
+// Import fonts
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+
+// Colors
+$primary: #00A7C4;  // Teal-blue for Utah theme
+$secondary: #2C2A29; // Dark gray 
+$success: #5AB946; // Green
+$info: #0a4c6a; // Dark blue
+$warning: #fdbf11; // Gold/orange
+$danger: #d2381e; // Red
+$light: #f8f9fa;
+$dark: #212529;
+
+// Typography
+$font-family-sans-serif: 'Open Sans', sans-serif;
+$headings-font-weight: 600;
+
+// Cards and panels
+$card-border-color: lighten($primary, 40%);
+$card-cap-bg: lighten($primary, 45%);
+
+/*-- scss:rules --*/
+
+// Dashboard title styling
+.dashboard-title {
+  color: $primary;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+// Value boxes
+.value-box {
+  border-left: 4px solid $primary;
+  transition: transform 0.2s;
+  
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  
+  .value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: $primary;
+  }
+}
+
+// Card styling
+.card {
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  margin-bottom: 1.5rem;
+  
+  .card-header {
+    font-weight: 600;
+  }
+}
+
+// Plot styling
+.plotly {
+  .main-svg {
+    border-radius: 4px;
+  }
+}
+
+// Tables
+.dataTables_wrapper {
+  font-size: 0.9rem;
+  
+  .dataTables_info {
+    color: $secondary;
+  }
+  
+  .table {
+    thead {
+      th {
+        background-color: lighten($primary, 45%);
+        color: $secondary;
+        font-weight: 600;
+      }
+    }
+    
+    tbody {
+      tr:hover {
+        background-color: lighten($primary, 55%);
+      }
+    }
+  }
+}
+
+// Sidebar
+.sidebar {
+  background-color: lighten($light, 1%);
+  border-right: 1px solid $card-border-color;
+  
+  .sidebar-title {
+    color: $secondary;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  
+  .form-select, .form-control {
+    border-color: lighten($secondary, 50%);
+    font-size: 0.9rem;
+    
+    &:focus {
+      border-color: $primary;
+      box-shadow: 0 0 0 0.2rem rgba(0, 167, 196, 0.25);
+    }
+  }
+  
+  .form-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+}
+
+// Help text
+.help-block {
+  color: lighten($secondary, 25%);
+  font-size: 0.85rem;
+  margin-top: 1rem;
+}

@@ -1,0 +1,53 @@
+/*-- scss:defaults --*/
+
+// Import Google Font
+@import url("https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap");
+
+/*-- scss:defaults --*/
+$primary: #1696d2;
+$secondary: #fdbf11;
+$body-bg: #ffffff;
+$body-color: #353535;
+$font-family-base: "Lato", system-ui, -apple-system, sans-serif;
+
+/*-- scss:rules --*/
+h1, h2, h3, h4, h5, h6 {
+  color: $primary;
+  font-weight: 700;
+}
+
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: none;
+  margin-bottom: 1rem;
+}
+
+.value-box {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.tab-content {
+  padding: 1rem;
+}
+
+.navbar {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.datatable-container {
+  padding: 1rem;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 768px) {
+  .value-box {
+    margin-bottom: 1rem;
+  }
+  
+  .tab-content {
+    padding: 0.5rem;
+  }
+}
