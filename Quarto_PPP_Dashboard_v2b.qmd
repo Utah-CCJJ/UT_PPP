@@ -21,6 +21,7 @@ format:
 #| message: false
 #| include: false
 
+
 # Load required packages - streamlined to only what's needed for visualization
 library(tidyverse)
 library(plotly)
@@ -43,8 +44,13 @@ library(forecast)
 library(htmltools)  # For tags$p function
 library(fable)
 
-# Set global options
-options(scipen = 999)
+# Set global options / Posit Connect Friendly options 
+# Connect-friendly options
+options(
+  scipen = 999,
+  warn = if(Sys.getenv("CONNECT_SERVER") != "") -1 else 0
+)
+
 theme_set(theme_minimal())
 
 # Define parameters that would have been selected by the user
@@ -240,9 +246,9 @@ selected_data <- get_data_for_population(population_type)
 ### About
 <span style="color: #1696d2">*The Utah Prison Projection Project is a collaborative effort between the Utah Department of Corrections and the Commission on Criminal and Juvenile Justice. This initiative aims to develop a Utah-specific prison population forecasting tool to support criminal justice resource planning and analyze the impact of new legislation and policy on prison populations.* </span>
 
-<span style="color: #565656"> **This dashboard provides projections of Utah's prison population based on historical data.**</span>
+<span style="color: #565656">**This dashboard provides projections of Utah's prison population based on historical data.**</span>
 
-<span style="color: #565656"> **Population Type:** Total, Male, Female </span>
+<span style="color: #565656">**Population Type:** Total, Male, Female </span>
 
 <span style="color: #565656">**Projection Horizon:** 5-years </span>
 

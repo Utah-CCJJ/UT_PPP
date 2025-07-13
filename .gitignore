@@ -1,7 +1,27 @@
-.Rproj.user
-.Rhistory
+# R
 .RData
-.Ruserdata
+.Rhistory
+.Rapp.history
 .DS_Store
 
+# Quarto
+/.quarto/
 /_site/
+
+# renv
+renv/library/
+renv/python/
+renv/staging/
+
+# Posit Connect
+rsconnect/
+manifest.json
+
+# Logs
+*.log
+
+# Temporary files
+*~
+.#*
+\#*#
+.Rproj.user
